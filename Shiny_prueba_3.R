@@ -13,8 +13,20 @@ library(rsconnect)
 datos_calles <- readRDS("calles_rosario.rds")
 
 ui <- page_sidebar(
-  theme = bs_theme(version = 5, bootswatch = "flatly"),
-  title = "Comparación de rutas OSRM: Corto vs Rápido",
+  theme = bs_theme(
+    version = 5,
+    bootswatch = "flatly",
+    primary = "#3F6E9A"  # azul más claro (podés probar otros)
+  ),
+  title = div(
+    style = "display: flex; align-items: center; max-height: 60px; overflow: hidden;",
+    tags$img(
+      src = "icono_auto2.png", 
+      height = "80px", 
+      style = "margin-right: 0px; margin-top: 10px;"
+    ),
+    h4("Elegí tu camino: priorizá tiempo o distancia", style = "margin: 0;")
+  ),
   sidebar = sidebar(
     width = 500,
     useShinyjs(),
@@ -47,6 +59,17 @@ ui <- page_sidebar(
       background-color: #f8f9fa !important; /* gris muy clarito */
       color: black !important;
     }
+  ")),
+      tags$script(HTML("
+    $(document).on('shown.bs.select', function () {
+      $('.dropdown-menu.inner li a').attr('tabindex', 0);
+    });
+
+    $(document).on('keydown', '.dropdown-menu.inner li a', function(e) {
+      if (e.key === 'Enter') {
+        $(this).click();
+      }
+    });
   "))
     ),
     
@@ -56,7 +79,7 @@ ui <- page_sidebar(
         column(12, pickerInput(
           inputId = "tipo_recorrido",
           label = HTML('<span style="font-weight: normal;">Tipo de recorrido:</span>'),
-          choices = c("Seleccione un tipo de recorrido" = "", "Rápido", "Corto", "Ambos"),
+          choices = c("Seleccione un tipo de recorrido" = "", "Corto", "Rápido", "Corto y Rápido"),
           options = list(`style` = "btn-white")
         ))
       )
@@ -65,22 +88,22 @@ ui <- page_sidebar(
     fluidRow(
       column(6, pickerInput("origen_interseccion_1",
                             label = HTML('<span style="font-weight: normal;">Calle 1:</span>'),
-                            choices = c("Seleccione una calle" = "", unique(datos_calles$name)),
+                            choices = c("Seleccione una calle" = "", sort(unique(datos_calles$name))),
                             options = list(`live-search` = TRUE))),
       column(6, pickerInput("origen_interseccion_2", 
                             label = HTML('<span style="font-weight: normal;">Calle 2:</span>'), 
-                            choices = c("Seleccione una calle" = "", unique(datos_calles$name)),
+                            choices = c("Seleccione una calle" = "", sort(unique(datos_calles$name))),
                             options = list(`live-search` = TRUE)))
     ),
     h4("Seleccionar la intersección de destino:", style = "font-weight: bold; font-size: 18px;"),
     fluidRow(
       column(6, pickerInput("destino_interseccion_1", 
                             label = HTML('<span style="font-weight: normal;">Calle 1:</span>'),
-                            choices = c("Seleccione una calle" = "", unique(datos_calles$name)), 
+                            choices = c("Seleccione una calle" = "", sort(unique(datos_calles$name))), 
                             selected = "", options = list(`live-search` = TRUE))),
       column(6, pickerInput("destino_interseccion_2", 
                             label = HTML('<span style="font-weight: normal;">Calle 2:</span>'), 
-                            choices = c("Seleccione una calle" = "", unique(datos_calles$name)),
+                            choices = c("Seleccione una calle" = "", sort(unique(datos_calles$name))),
                             options = list(`live-search` = TRUE)))
     ),
     actionButton("generar_ruta", 
@@ -121,7 +144,7 @@ server <- function(input, output, session) {
     servidores <- switch(tipo,
                          "Rápido" = "http://149.50.149.229:81/",
                          "Corto" = "http://149.50.149.229/",
-                         "Ambos" = c("http://149.50.149.229:81/", "http://149.50.149.229/")
+                         "Corto y Rápido" = c("http://149.50.149.229:81/", "http://149.50.149.229/")
     )
     
     servidores_seleccionados(servidores)
@@ -147,7 +170,7 @@ server <- function(input, output, session) {
       idx_intersectadas <- which(calles_intersectadas[1, ])
       
       # Filtrar las calles cruzadas
-      calles_cruzadas <- unique(datos_calles$name[idx_intersectadas])
+      calles_cruzadas <- sort(unique(datos_calles$name[idx_intersectadas]))
       calles_cruzadas <- setdiff(calles_cruzadas, calle1_origen)
       
       # Actualizar las opciones de las calles en el pickerInput
@@ -156,7 +179,7 @@ server <- function(input, output, session) {
                         selected = "")
     } else {
       updatePickerInput(session, "origen_interseccion_2",
-                        choices = c("Seleccione una calle" = "", unique(datos_calles$name)),
+                        choices = c("Seleccione una calle" = "", sort(unique(datos_calles$name))),
                         selected = "")
     }
   })
@@ -177,7 +200,7 @@ server <- function(input, output, session) {
       idx_intersectadas <- which(calles_intersectadas[1, ])
       
       # Filtrar las calles cruzadas
-      calles_cruzadas <- unique(datos_calles$name[idx_intersectadas])
+      calles_cruzadas <- sort(unique(datos_calles$name[idx_intersectadas]))
       calles_cruzadas <- setdiff(calles_cruzadas, calle1_destino)
       
       # Actualizar las opciones de las calles en el pickerInput
@@ -186,7 +209,7 @@ server <- function(input, output, session) {
                         selected = "")
     } else {
       updatePickerInput(session, "destino_interseccion_2",
-                        choices = c("Seleccione una calle" = "", unique(datos_calles$name)),
+                        choices = c("Seleccione una calle" = "", sort(unique(datos_calles$name))),
                         selected = "")
     }
   })
