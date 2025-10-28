@@ -22,19 +22,22 @@ rosario_osm <- osmdata::opq(bbox = "Rosario, Argentina") %>%  # permite extraer 
 # Extraer las líneas (calles) y los nodos (intersecciones)
 calles <- rosario_osm$osm_lines
 
+# Guardar el objeto calles en un archivo RDS
+saveRDS(calles, file = "calles_rosario.rds")
+
 # Primera interseccion
-Nueve_julio <- calles %>% filter(name == "9 de Julio")
+Tres_Febrero <- calles %>% filter(name == "3 de Febrero")
 Santiago <- calles %>% filter(name == "Santiago")
  
 # Nodos de intersección
-interseccion1 <- sf::st_intersection(Nueve_julio, Santiago)
+interseccion1 <- sf::st_intersection(Tres_Febrero, Santiago)
 
 # Segunda interseccion
-Alberdi <- calles %>% filter(name == "Avenida Alberdi")
-Jjpaso <- calles %>% filter(name == "Avenida Juan José Paso")
+Avellaneda <- calles %>% filter(name == "Bulevar Nicolás Avellaneda")
+Mendoza <- calles %>% filter(name == "Mendoza")
 
 # Nodos de intersección
-interseccion2 <- sf::st_intersection(Alberdi, Jjpaso)
+interseccion2 <- sf::st_intersection(Avellaneda, Mendoza)
 
 # Extraer las coordenadas de las intersecciones
 coords_interseccion1 <- sf::st_coordinates(interseccion1)[1, ]
@@ -52,6 +55,7 @@ ruta <- osrm::osrmRoute(
         src = coords_interseccion1,
         dst = coords_interseccion2,
         osrm.profile = modo_transporte,  # Aplica el perfil seleccionado
+        osrm.server = "https://router.project-osrm.org/",
         overview = "full", #  Devuelve la ruta completa con todas las coordenadas detalladas. 
 )
 

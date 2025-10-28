@@ -132,7 +132,6 @@ ui <- page_sidebar(
   )
 )
 
-
 server <- function(input, output, session) {
   
   # Tipo de recorrido
@@ -216,6 +215,8 @@ server <- function(input, output, session) {
   
   loading <- reactiveVal(FALSE)
   
+  # 💡 OJO: Este bloque fue reemplazado antes para solucionar el control de botón.
+  # Si vuelves a este bloque, el mapa se actualizará CADA VEZ que cambies el tipo de recorrido.
   observeEvent(input$generar_ruta, {
     loading(TRUE)  # Empieza a cargar
     
@@ -248,11 +249,16 @@ server <- function(input, output, session) {
   
   rutas <- reactive({
     puntos <- coords()
-    req(puntos)
+    # Si puntos es NULL, salimos sin calcular nada.
+    if (is.null(puntos)) return(NULL) 
+    
+    servidores <- servidores_seleccionados()
+    # Si no hay servidores seleccionados, salimos.
+    if (is.null(servidores)) return(NULL) 
     
     rutas_lista <- list()
     
-    for (srv in servidores_seleccionados()) {
+    for (srv in servidores) {
       options(osrm.server = srv)
       ruta <- tryCatch({
         osrmRoute(
@@ -271,62 +277,90 @@ server <- function(input, output, session) {
   })
   
   
-  
+  # 💡 ESTE ES EL BLOQUE MODIFICADO PARA INCLUIR EL MAPA DE OSM AL INICIO
   output$mapa <- renderLeaflet({
     
-    req(!loading())  # Espera a que no esté cargando
-    puntos <- coords()
-    req(puntos)
+    # 1. Obtenemos las rutas (si es que se calcularon)
     rutas_lista <- rutas()
     
-    icono_origen <- leaflet::makeIcon(
-      iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png", 
-      iconWidth = 25, 
-      iconHeight = 41,
-      iconAnchorX = 12, 
-      iconAnchorY = 41
-    )
+if (is.null(rutas_lista) || length(rutas_lista) == 0) {
+    # CASO 1: MAPA PROVISORIO (al inicio o si falla la ruta)
     
-    icono_destino <- leaflet::makeIcon(
-      iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png", 
-      iconWidth = 25, 
-      iconHeight = 41,
-      iconAnchorX = 12, 
-      iconAnchorY = 41
-    )
+    # Coordenadas aproximadas del centro de Rosario
+    rosario_lat <- -32.9472
+    rosario_lng <- -60.6387
     
-    mapa <- leaflet() %>%
-      addTiles()
+    # 💡 CAMBIOS CLAVE:
+    # 1. Zoom reducido a 11 para ver más de la silueta de Rosario.
+    # 2. Eliminado addCircles (no tendrá marca de destino/origen).
     
-    for (srv in names(rutas_lista)) {
-      ruta <- rutas_lista[[srv]]
+    mapa_inicial <- leaflet() %>%
+      addTiles(options = tileOptions(opacity = 0.8)) %>%
+      # 💡 Reducimos el zoom de 13 a 11 para ver más área de la ciudad
+      setView(lng = rosario_lng, lat = rosario_lat, zoom = 12)
+    
+    return(mapa_inicial)
       
-      if (!is.null(ruta)) {
-        coords_ruta <- st_coordinates(ruta)
+    } else {
+      # CASO 2: Muestra el mapa con las rutas calculadas.
+      
+      puntos <- coords()
+      req(puntos) # Asegura que tengamos coordenadas.
+      
+      icono_origen <- leaflet::makeIcon(
+        iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png", 
+        iconWidth = 25, 
+        iconHeight = 41,
+        iconAnchorX = 12, 
+        iconAnchorY = 41
+      )
+      
+      icono_destino <- leaflet::makeIcon(
+        iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png", 
+        iconWidth = 25, 
+        iconHeight = 41,
+        iconAnchorX = 12, 
+        iconAnchorY = 41
+      )
+      
+      mapa <- leaflet() %>%
+        addTiles()
+      
+      for (srv in names(rutas_lista)) {
+        ruta <- rutas_lista[[srv]]
         
-        mapa <- mapa %>%
-          addMarkers(lng = coords_ruta[1, 1], lat = coords_ruta[1, 2],
-                     icon = icono_origen, label = "Origen",
-                     labelOptions = labelOptions(noHide = TRUE, direction = "auto")) %>%
-          addMarkers(lng = coords_ruta[nrow(coords_ruta), 1], lat = coords_ruta[nrow(coords_ruta), 2],
-                     icon = icono_destino, label = "Destino",
-                     labelOptions = labelOptions(noHide = TRUE, direction = "auto"))
-        
-        if (srv == "http://149.50.149.229:81/") {
-          mapa <- mapa %>%
-            addPolylines(data = ruta, color = "#2400D8", weight = 7, opacity = 1) %>%
-            addPolylines(data = ruta, color = "#1965FF", weight = 4, opacity = 0.7,
-                         label = "Ruta más Rápida")
-        } else if (srv == "http://149.50.149.229/") {
-          mapa <- mapa %>%
-            addPolylines(data = ruta, color = "#008B00", weight = 7, opacity = 1) %>%
-            addPolylines(data = ruta, color = "#32CD32", weight = 4, opacity = 0.7,
-                         label = "Ruta más Corta")
+        if (!is.null(ruta)) {
+          coords_ruta <- st_coordinates(ruta)
+          
+          # Añadir marcadores una sola vez (esto es una pequeña corrección de eficiencia)
+          if (srv == names(rutas_lista)[1]) {
+            mapa <- mapa %>%
+              addMarkers(lng = coords_ruta[1, 1], lat = coords_ruta[1, 2],
+                         icon = icono_origen, label = "Origen",
+                         labelOptions = labelOptions(noHide = TRUE, direction = "auto")) %>%
+              addMarkers(lng = coords_ruta[nrow(coords_ruta), 1], lat = coords_ruta[nrow(coords_ruta), 2],
+                         icon = icono_destino, label = "Destino",
+                         labelOptions = labelOptions(noHide = TRUE, direction = "auto"))
+          }
+          
+          if (srv == "http://149.50.149.229:81/") {
+            mapa <- mapa %>%
+              addPolylines(data = ruta, color = "#2400D8", weight = 7, opacity = 1) %>%
+              addPolylines(data = ruta, color = "#1965FF", weight = 4, opacity = 0.7,
+                           label = "Ruta más Rápida")
+          } else if (srv == "http://149.50.149.229/") {
+            mapa <- mapa %>%
+              addPolylines(data = ruta, color = "#008B00", weight = 7, opacity = 1) %>%
+              addPolylines(data = ruta, color = "#32CD32", weight = 4, opacity = 0.7,
+                           label = "Ruta más Corta")
+          }
         }
       }
+      return(mapa)
     }
-    
-    mapa
+    # Ajustar vista para que se vean todas las rutas y marcadores
+    coords <- rbind(puntos$origen, puntos$destino)
+    proxy %>% fitBounds(min(coords[,1]), min(coords[,2]), max(coords[,1]), max(coords[,2]))
   })
   
   formatear_distancia <- function(distancia_km) {
@@ -339,7 +373,6 @@ server <- function(input, output, session) {
   
   output$info_rutas <- renderUI({
     
-    req(!loading())  # Espera a que no esté cargando
     rutas_lista <- rutas()
     req(rutas_lista)
     
@@ -379,4 +412,4 @@ server <- function(input, output, session) {
   })
 }
 
-shinyApp(ui, server)
+ shinyApp(ui, server)
