@@ -1,0 +1,13 @@
+name: Dijkstra
+title: Dijkstra
+username: g1klc7-valentina-salvarezza
+account: g1klc7-valentina-salvarezza
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15895367
+bundleId: 11098006
+url: https://g1klc7-valentina-salvarezza.shinyapps.io/Dijkstra/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|App-osrm-tesina.R|dijkstra_animado.gif|Grafo_Dijkstra.R|Opción con r5r.R|README.md|rosario_intersections.csv|Shiny_prueba.R|Tesina_con_osrm.R

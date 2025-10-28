@@ -134,10 +134,11 @@ ui <- page_sidebar(
 
 server <- function(input, output, session) {
   
-  # Tipo de recorrido
-  servidores_seleccionados <- reactiveVal(NULL)
+  # ReactiveVal para manejar el estado de carga (y el spinner)
+  loading <- reactiveVal(FALSE)
   
-  observeEvent(input$tipo_recorrido, {
+  # 1. TIPO DE RECORRIDO: eventReactive - SÓLO se actualiza al presionar el botón
+  servidores_seleccionados <- eventReactive(input$generar_ruta, {
     tipo <- input$tipo_recorrido
     
     servidores <- switch(tipo,
@@ -146,10 +147,8 @@ server <- function(input, output, session) {
                          "Corto y Rápido" = c("http://149.50.149.229:81/", "http://149.50.149.229/")
     )
     
-    servidores_seleccionados(servidores)
-  })
-  
-  
+    servidores
+  }, ignoreNULL = FALSE) # Importante: ignoreNULL = FALSE para que se ejecute al primer clic
   
   # Para la calle de origen
   coords <- reactiveVal(NULL)
@@ -358,9 +357,6 @@ if (is.null(rutas_lista) || length(rutas_lista) == 0) {
       }
       return(mapa)
     }
-    # Ajustar vista para que se vean todas las rutas y marcadores
-    coords <- rbind(puntos$origen, puntos$destino)
-    proxy %>% fitBounds(min(coords[,1]), min(coords[,2]), max(coords[,1]), max(coords[,2]))
   })
   
   formatear_distancia <- function(distancia_km) {
